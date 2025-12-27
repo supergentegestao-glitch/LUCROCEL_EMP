@@ -1,156 +1,22 @@
-name: Build and Deploy
-
+name: Gerar APK LUCROCEL_EMP
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
-      - develop
-
+  workflow_dispatch: # Isso cria o botão para você gerar o APK quando quiser
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-latest
-    name: Lint Code
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Run ESLint
-        run: pnpm run lint
-        continue-on-error: true
-
-  build-android:
-    runs-on: ubuntu-latest
-    name: Build Android APK
-    needs: lint
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+          java-version: '17'
+          distribution: 'temurin’
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Build APK
+        run: ./gradlew assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Setup Expo
-        run: pnpm add -g expo-cli
-
-      - name: Build APK with EAS
-        run: |
-          npm install -g eas-cli
-          eas build --platform android --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        continue-on-error: true
-
-  build-web:
-    runs-on: ubuntu-latest
-    name: Build Web Version
-    needs: lint
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build web
-        run: pnpm run web
-        continue-on-error: true
-
-  create-release:
-    runs-on: ubuntu-latest
-    name: Create Release
-    needs: [build-android, build-web]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Get version from package.json
-        id: version
-        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.version.outputs.VERSION }}
-          release_name: Release v${{ steps.version.outputs.VERSION }}
-          body: |
-            ## Changes in this Release
-            - Automated build from GitHub Actions
-            - Build date: ${{ github.event.head_commit.timestamp }}
-            - Commit: ${{ github.event.head_commit.message }}
-          draft: false
-          prerelease: false
-
-  notify-success:
-    runs-on: ubuntu-latest
-    name: Notify Success
-    needs: [lint, build-android, build-web]
-    if: success()
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Notify Build Success
-        run: |
-          echo "✅ Build completed successfully!"
-          echo "Repository: ${{ github.repository }}"
-          echo "Branch: ${{ github.ref }}"
-          echo "Commit: ${{ github.sha }}"
-
-  notify-failure:
-    runs-on: ubuntu-latest
-    name: Notify Failure
-    needs: [lint, build-android, build-web]
-    if: failure()
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Notify Build Failure
-        run: |
-          echo "❌ Build failed!"
-          echo "Repository: ${{ github.repository }}"
-          echo "Branch: ${{ github.ref }}"
-          echo "Commit: ${{ github.sha }}"
+          name: SuperGente-APK-Offline
+          path: app/build/outputs/apk/debug/app-debug.apk
